@@ -1,13 +1,24 @@
 package swaparoo
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/zeebo/assert"
+)
 
 func TestCounter(t *testing.T) {
+	ch := make(chan bool, 2)
 	var ctr counter
-	ctr.Wait()
+	ctr.Acquire()
+	go func() {
+		ctr.Wait()
+		ch <- false
+	}()
 	for i := 0; i < 10; i++ {
 		ctr.Acquire()
-		go ctr.Release()
+		ctr.Release()
 	}
-	ctr.Wait()
+	ch <- true
+	ctr.Release()
+	assert.That(t, <-ch)
 }
