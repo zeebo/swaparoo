@@ -28,9 +28,9 @@ func NewTracker() *Tracker {
 	return new(Tracker)
 }
 
-// getLock returns the pth mutex modulo the maximum number of mutexes from the
+// getCounter returns the pth mutex modulo the maximum number of mutexes from the
 // buffer chosen by gen's parity.
-func (t *Tracker) getLock(gen uint64, p uint) *counter {
+func (t *Tracker) getCounter(gen uint64, p uint) *counter {
 	return &t.buf[gen%2][p%numCounters].ctr
 }
 
@@ -45,7 +45,7 @@ func (t *Tracker) Acquire() Token {
 	gen := atomic.LoadUint64(&t.gen)
 	for {
 		// acquire the counter
-		ctr := t.getLock(gen, p)
+		ctr := t.getCounter(gen, p)
 		ctr.Acquire()
 
 		// double check that the generation didn't change to ensure that any
@@ -68,7 +68,10 @@ func (t *Tracker) Acquire() Token {
 func (t *Tracker) Increment() uint64 {
 	gen := atomic.AddUint64(&t.gen, 1) - 1
 	for p := uint(0); p < numCounters; p++ {
-		t.getLock(gen, p).Wait()
+		ctr := t.getCounter(gen, p)
+		if !ctr.Zero() {
+			ctr.Wait()
+		}
 	}
 	return gen
 }

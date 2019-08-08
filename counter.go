@@ -27,6 +27,11 @@ func (c *counter) Release() {
 	}
 }
 
+// Zero returns if the counter is not Acquired.
+func (c *counter) Zero() bool {
+	return atomic.LoadInt32(&c.count) == 0
+}
+
 // Wait blocks until the counter is zero.
 func (c *counter) Wait() {
 	if atomic.AddInt32(&c.count, negCounterMax) != negCounterMax {
