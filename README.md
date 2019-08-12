@@ -92,6 +92,15 @@ since the bump happens independent of the tracker's Increment, some Tokens may
 be using the new counters buffer but count when waiting for them to finish with
 the old counters.
 
+## Benchmarks
+
+```
+BenchmarkSwaparoo/Acquire-8             100000000        14.5 ns/op
+BenchmarkSwaparoo/Increment-8           20000000         87.7 ns/op
+BenchmarkSwaparoo/Parallel/Acquire-8    1000000000       2.67 ns/op
+BenchmarkSwaparoo/Parallel/Increment-8  500000000        4.01 ns/op
+```
+
 ## Usage
 
 #### type Pending
