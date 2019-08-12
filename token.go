@@ -13,3 +13,6 @@ func (t Token) Release() { t.ctr.Release() }
 
 // Gen reports the current generation of the Tracker.
 func (t Token) Gen() uint64 { return t.gen }
+
+// Hint reports a thread hint associated with the Token.
+func (t Token) Hint() uint { return t.p }
