@@ -5,7 +5,7 @@
 //
 //	var counters [1000]uint64
 //
-//	func Increment(n int) {
+//	func AddToCounter(n int) {
 //		atomic.AddUint64(&counter[n], 1)
 //	}
 //
@@ -32,7 +32,7 @@
 //		tracker  = swaparoo.NewTracker()
 //	)
 //
-//	func Increment(n int) {
+//	func AddToCounter(n int) {
 //		token := tracker.Acquire()
 //		atomic.AddUint64(&counters[token.Gen()%2][n], 1)
 //		token.Release()
