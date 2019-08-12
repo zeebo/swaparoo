@@ -22,8 +22,10 @@
 //	}
 //
 // This solution suffers from having to do a number of atomic operations that scales
-// with the number of counters. Using the types in this package, however, it can be
-// accomplished in a lock-free way using a constant number of operations:
+// with the number of counters. Additionally, it does not provide a consistent snapshot
+// of the values in the counters because it cannot read all of them at once. Using the
+// types in this package, however, both of these problems can be solved in a lock-free
+// way:
 //
 //	var (
 //		counters [2][1000]uint64
@@ -37,9 +39,8 @@
 //	}
 //
 //	func Reset() (out [1000]uint64) {
-//		gen := tracker.Increment()
-//		out = counters[gen%2]
-//		counters[gen%2] = [1024]uint64{}
+//		gen := tracker.Increment()%2
+//		out, counters[gen] = counters[gen], [1000]uint64{}
 //		return out
 //	}
 //
