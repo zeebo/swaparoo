@@ -8,7 +8,7 @@ import (
 )
 
 func TestSwaparoo(t *testing.T) {
-	tr := NewTracker()
+	tr := new(Tracker)
 
 	for i := 0; i < 10; i++ {
 		token := tr.Acquire()
@@ -26,7 +26,7 @@ func TestSwaparoo(t *testing.T) {
 
 func BenchmarkSwaparoo(b *testing.B) {
 	b.Run("Acquire", func(b *testing.B) {
-		tr := NewTracker()
+		tr := new(Tracker)
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
@@ -35,7 +35,7 @@ func BenchmarkSwaparoo(b *testing.B) {
 	})
 
 	b.Run("Increment", func(b *testing.B) {
-		tr := NewTracker()
+		tr := new(Tracker)
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
@@ -45,7 +45,7 @@ func BenchmarkSwaparoo(b *testing.B) {
 
 	b.Run("Parallel", func(b *testing.B) {
 		b.Run("Acquire", func(b *testing.B) {
-			tr := NewTracker()
+			tr := new(Tracker)
 			b.ReportAllocs()
 
 			b.RunParallel(func(pb *testing.PB) {
@@ -57,7 +57,7 @@ func BenchmarkSwaparoo(b *testing.B) {
 
 		b.Run("Increment", func(b *testing.B) {
 			first := new(uint64)
-			tr := NewTracker()
+			tr := new(Tracker)
 			b.ReportAllocs()
 
 			b.RunParallel(func(pb *testing.PB) {

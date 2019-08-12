@@ -1,8 +1,7 @@
 package swaparoo
 
 // Token keeps track of the Tracker's current generation and prevents changes
-// to it while it is not Released. Depending on how the Token was acquired, there
-// may be many or only one allowed to exist at once.
+// to it while it is not Released.
 type Token struct {
 	ctr *counter
 	gen uint64

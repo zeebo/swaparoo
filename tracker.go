@@ -12,7 +12,7 @@ const (
 
 // Tracker allows one to acquire Tokens that come with a monotonically increasing
 // generation number. It does so in a scalable way, and optimizes for the case where
-// not many changes to the generation happen.
+// not many changes to the generation happen. The zero value is safe to use.
 type Tracker struct {
 	gen uint64
 	_   [cacheLine - unsafe.Sizeof(uint64(0))]byte
@@ -21,11 +21,6 @@ type Tracker struct {
 		ctr counter
 		_   [cacheLine - unsafe.Sizeof(counter{})]byte
 	}
-}
-
-// NewTracker constructs a Tracker.
-func NewTracker() *Tracker {
-	return new(Tracker)
 }
 
 // getCounter returns the pth mutex modulo the maximum number of mutexes from the
