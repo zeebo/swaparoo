@@ -50,34 +50,4 @@
 // becasuse it changes the shared value and reads/writes all of the thread-local counters.
 // It does not stop the progress of future Acquire calls, however, allowing throughput
 // on Acquire to remain high.
-//
-// One does not even need to use the returned generation. For example, the above could be
-// written in this way:
-//
-//	var (
-//		counters = unsafe.Pointer(new([1000]uint64))
-//		tracker  = swaparoo.NewTracker()
-//	)
-//
-//	func loadCounters() *[1000]uint64 {
-//		return (*[1000]uint64)(atomic.LoadPointer(&counters))
-//	}
-//
-//	func AddToCounter(n int) {
-//		token := tracker.Acquire()
-//		atomic.AddUint64(&loadCounters()[n], 1)
-//		token.Release()
-//	}
-//
-//	func Reset() (out *[1000]uint64) {
-//		out = loadCounters()
-//		atomic.StorePointer(&counters, unsafe.Pointer(new([1000]uint64)))
-//		tracker.Increment().Wait()
-//		return out
-//	}
-//
-// That way only requires atomically writing a pointer to bump the generation, but
-// since the bump happens independent of the tracker's Increment, some Tokens may
-// be using the new counters buffer but count when waiting for them to finish with
-// the old counters.
 package swaparoo
