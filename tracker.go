@@ -6,6 +6,11 @@ import (
 	"unsafe"
 )
 
+var thread uint32
+var threadPool = sync.Pool{
+	New: func() interface{} { return uint(atomic.AddUint32(&thread, 1)) },
+}
+
 // Tracker allows one to acquire Tokens that come with a monotonically increasing
 // generation number. It does so in a scalable way, and optimizes for the case where
 // not many changes to the generation happen. The zero value is safe to use.
@@ -19,8 +24,9 @@ type Tracker struct {
 // It is safe to be called concurrently.
 func (t *Tracker) Acquire() Token {
 	// determine which counter we're going to hold
-	p := uint(procPin())
-	procUnpin()
+	pi := threadPool.Get()
+	threadPool.Put(pi)
+	p, _ := pi.(uint)
 
 	// load the current generation, allocating it if it's nil.
 	page := (*counterPage)(atomic.LoadPointer(&t.page))
