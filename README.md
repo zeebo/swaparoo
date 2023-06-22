@@ -117,7 +117,7 @@ Gen reports the current generation of the Tracker.
 #### func (Token) Hint
 
 ```go
-func (t Token) Hint() uint
+func (t Token) Hint() uint64
 ```
 Hint reports a thread hint associated with the Token.
 

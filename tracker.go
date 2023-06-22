@@ -6,9 +6,9 @@ import (
 	"unsafe"
 )
 
-var thread uint32
+var thread uint64
 var threadPool = sync.Pool{
-	New: func() interface{} { return uint(atomic.AddUint32(&thread, 1)) },
+	New: func() interface{} { return uint64(atomic.AddUint64(&thread, 1)) },
 }
 
 // Tracker allows one to acquire Tokens that come with a monotonically increasing
@@ -26,7 +26,7 @@ func (t *Tracker) Acquire() Token {
 	// determine which counter we're going to hold
 	pi := threadPool.Get()
 	threadPool.Put(pi)
-	p, _ := pi.(uint)
+	p, _ := pi.(uint64)
 
 	// load the current generation, allocating it if it's nil.
 	page := (*counterPage)(atomic.LoadPointer(&t.page))

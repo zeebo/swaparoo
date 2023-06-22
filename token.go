@@ -5,7 +5,7 @@ package swaparoo
 type Token struct {
 	ctr *counter
 	gen uint64
-	p   uint
+	p   uint64
 }
 
 // Release invalidates the Token and must be called exactly once.
@@ -15,4 +15,4 @@ func (t Token) Release() { t.ctr.Release() }
 func (t Token) Gen() uint64 { return t.gen }
 
 // Hint reports a thread hint associated with the Token.
-func (t Token) Hint() uint { return t.p }
+func (t Token) Hint() uint64 { return t.p }
