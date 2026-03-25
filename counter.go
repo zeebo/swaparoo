@@ -5,31 +5,30 @@ import (
 	"sync/atomic"
 )
 
-// counter is a simple implementation of a wait group.
+// counter lets one acquire and release a read lock, and wait until the read lock
+// is unacquired.
 type counter struct {
-	mu    sync.RWMutex
-	count int32
+	mu   sync.RWMutex
+	held atomic.Int32
 }
 
 // Acquire increments the counter and blocks Wait calls.
 func (c *counter) Acquire() {
-	atomic.AddInt32(&c.count, 1)
+	c.held.Add(1)
 	c.mu.RLock()
 }
 
 // Release decrements the counter and unblocks Wait if the counter is empty.
 func (c *counter) Release() {
 	c.mu.RUnlock()
-	atomic.AddInt32(&c.count, -1)
-}
-
-// Zero returns if the counter is not Acquired.
-func (c *counter) Zero() bool {
-	return atomic.LoadInt32(&c.count) == 0
+	c.held.Add(-1)
 }
 
 // Wait blocks until the counter is zero.
 func (c *counter) Wait() {
-	c.mu.Lock()
-	c.mu.Unlock()
+	if c.held.Load() != 0 {
+		c.mu.Lock()
+		_ = 0
+		c.mu.Unlock()
+	}
 }

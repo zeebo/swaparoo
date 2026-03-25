@@ -36,6 +36,7 @@ can be solved in a lock-free way:
 
 ```go
 var (
+	mu       sync.Mutex
 	counters [2][1000]uint64
 	tracker  = swaparoo.NewTracker()
 )
@@ -47,8 +48,12 @@ func AddToCounter(n int) {
 }
 
 func Reset() (out [1000]uint64) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	gen := tracker.Increment().Wait()%2
-	out, counters[gen] = counters[gen], [1000]uint64{}
+	out := counters[gen]
+	counters[gen] = [1000]uint64{}
 	return out
 }
 ```
@@ -63,96 +68,8 @@ future Acquire calls, however, allowing throughput on Acquire to remain high.
 ## Benchmarks
 
 ```
-BenchmarkSwaparoo/Acquire-8             100000000        14.5 ns/op
-BenchmarkSwaparoo/Increment-8           20000000         87.7 ns/op
-BenchmarkSwaparoo/Parallel/Acquire-8    1000000000       2.67 ns/op
-BenchmarkSwaparoo/Parallel/Increment-8  500000000        4.01 ns/op
+BenchmarkSwaparoo/Acquire-32               63619186     18.18 ns/op
+BenchmarkSwaparoo/Increment-32             11154158     106.7 ns/op
+BenchmarkSwaparoo/Parallel/Acquire-32    1000000000    0.9750 ns/op
+BenchmarkSwaparoo/Parallel/Increment-32  1000000000     1.012 ns/op
 ```
-
-## Usage
-
-#### type Pending
-
-```go
-type Pending struct {
-}
-```
-
-Pending represents a generation of the tracker that has been Incremented past.
-When a call to Wait returns, it can be sure that no one has any Tokens with the
-same generation.
-
-#### func (Pending) Gen
-
-```go
-func (p Pending) Gen() uint64
-```
-Gen returns the generation the Pending is associated to.
-
-#### func (Pending) Wait
-
-```go
-func (p Pending) Wait() uint64
-```
-Wait blocks until all Tokens with the same generation are Released. It returns
-the generation the Pending is associated to.
-
-#### type Token
-
-```go
-type Token struct {
-}
-```
-
-Token keeps track of the Tracker's current generation and prevents changes to it
-while it is not Released.
-
-#### func (Token) Gen
-
-```go
-func (t Token) Gen() uint64
-```
-Gen reports the current generation of the Tracker.
-
-#### func (Token) Hint
-
-```go
-func (t Token) Hint() uint64
-```
-Hint reports a thread hint associated with the Token.
-
-#### func (Token) Release
-
-```go
-func (t Token) Release()
-```
-Release invalidates the Token and must be called exactly once.
-
-#### type Tracker
-
-```go
-type Tracker struct {
-}
-```
-
-Tracker allows one to acquire Tokens that come with a monotonically increasing
-generation number. It does so in a scalable way, and optimizes for the case
-where not many changes to the generation happen. The zero value is safe to use.
-
-#### func (*Tracker) Acquire
-
-```go
-func (t *Tracker) Acquire() Token
-```
-Acquire returns a Token that can be used to inspect the current generation. It
-must be Released before an Increment of the Token's generation can complete. It
-is safe to be called concurrently.
-
-#### func (*Tracker) Increment
-
-```go
-func (t *Tracker) Increment() Pending
-```
-Increment bumps the generation of the Tracker for future Acquire calls and
-returns a Pending that can be used to Wait until all currently Acquired Tokens
-with the same generation are Released. It is safe to be called concurrently.

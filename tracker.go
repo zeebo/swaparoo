@@ -3,52 +3,61 @@ package swaparoo
 import (
 	"sync"
 	"sync/atomic"
-	"unsafe"
 )
 
-var thread uint64
-var threadPool = sync.Pool{
-	New: func() interface{} { return uint64(atomic.AddUint64(&thread, 1)) },
-}
+var (
+	hint     uint64
+	hintPool = sync.Pool{New: func() any {
+		// we mod by numCounters because we're going to do that eventually
+		// anyway and there is a small number optimization in the runtime to
+		// avoid heap allocations.
+		return (uint64(atomic.AddUint64(&hint, 1)) - 1) % numCounters
+	}}
+)
 
 // Tracker allows one to acquire Tokens that come with a monotonically increasing
 // generation number. It does so in a scalable way, and optimizes for the case where
 // not many changes to the generation happen. The zero value is safe to use.
 type Tracker struct {
-	page unsafe.Pointer // *counterPage
-	mu   sync.Mutex     // serializes Increment
+	page atomic.Pointer[counterPage]
+	mu   sync.Mutex // serializes Increment
 }
 
 // Acquire returns a Token that can be used to inspect the current generation.
-// It must be Released before an Increment of the Token's generation can complete.
-// It is safe to be called concurrently.
+// It must be Released before an Increment of the Token's generation can
+// complete. It is safe to be called concurrently.
 func (t *Tracker) Acquire() Token {
 	// determine which counter we're going to hold
-	pi := threadPool.Get()
-	threadPool.Put(pi)
-	p, _ := pi.(uint64)
+	hintI := hintPool.Get()
+	hintPool.Put(hintI)
+	hint, _ := hintI.(uint64)
 
 	// load the current generation, allocating it if it's nil.
-	page := (*counterPage)(atomic.LoadPointer(&t.page))
+	page := t.page.Load()
 	if page == nil {
 		page = newCounterPage()
 		page.gen = 0
-		if !atomic.CompareAndSwapPointer(&t.page, nil, unsafe.Pointer(page)) {
-			page.Release()
-			page = (*counterPage)(atomic.LoadPointer(&t.page))
+		if !t.page.CompareAndSwap(nil, page) {
+			page = t.page.Load()
 		}
 	}
 
 	for {
-		// acquire the counter
-		ctr := &page.ctrs[p%numCounters].ctr
+		// before we acquire the counter, read the pgen of the page.
+		pgen := page.pgen.Load()
+
+		// acquire the counter.
+		ctr := &page.ctrs[hint%numCounters].ctr
 		ctr.Acquire()
 
-		// double check that the generation didn't change to ensure that any
-		// Increment calls are aware of our potential outstanding Token.
-		pageNext := (*counterPage)(atomic.LoadPointer(&t.page))
-		if page == pageNext {
-			return Token{ctr: ctr, gen: page.gen, p: p}
+		// load the page again. if it's still the same page and the pgen is the
+		// same, then we know there was no way the page was reused or
+		// Incremented while we were acquiring the counter, so it's safe to
+		// return a Token with the generation we observed.
+		pageNext := t.page.Load()
+		if page == pageNext && pgen == pageNext.pgen.Load() {
+			// since we have acquired ctr, we are able to read page.gen
+			return Token{ctr: ctr, gen: page.gen, hint: hint}
 		}
 
 		// we lost the race, and can't safely return a Token. try again with
@@ -69,13 +78,12 @@ func (t *Tracker) Increment() Pending {
 	// read and lazily allocate the current page. we have to do this even with
 	// the mutex because Acquire may be happening which ignores the mutex, so
 	// we have to use CAS to synchronize.
-	page := (*counterPage)(atomic.LoadPointer(&t.page))
+	page := t.page.Load()
 	if page == nil {
 		page = newCounterPage()
 		page.gen = 0
-		if !atomic.CompareAndSwapPointer(&t.page, nil, unsafe.Pointer(page)) {
-			page.Release()
-			page = (*counterPage)(atomic.LoadPointer(&t.page))
+		if !t.page.CompareAndSwap(nil, page) {
+			page = t.page.Load()
 		}
 	}
 
@@ -84,16 +92,16 @@ func (t *Tracker) Increment() Pending {
 	// nil and the mutex serializes calls to Increment.
 	nextPage := newCounterPage()
 	nextPage.gen = page.gen + 1
-	atomic.StorePointer(&t.page, unsafe.Pointer(nextPage))
+	t.page.Store(nextPage)
 
 	t.mu.Unlock()
 
 	// no one else can be reading/writing to the page header now, so we are safe
-	// to do unsynchronized reads. synchronization is provided by the atomic
-	// loads and stores of the page pointer itself.
+	// to return. synchronization is provided by the atomic loads and stores of
+	// the page pointer itself.
 	return Pending{
 		page: page,
 		gen:  page.gen,
-		pgen: page.pgen,
+		pgen: page.pgen.Load(),
 	}
 }

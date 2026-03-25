@@ -12,7 +12,7 @@ import (
 func TestTracker(t *testing.T) {
 	tr := new(Tracker)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		token := tr.Acquire()
 		assert.Equal(t, token.Gen(), i)
 		token.Release()
@@ -37,10 +37,10 @@ func TestTrackerRace(t *testing.T) {
 	// a goroutine to close the send channel when all the workers are done.
 	var wg sync.WaitGroup
 	wg.Add(2 * np)
-	for i := 0; i < np; i++ {
+	for range np {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < num; i++ {
+			for range num {
 				ch <- tr.Increment().Wait()
 			}
 		}()
@@ -79,7 +79,7 @@ func BenchmarkSwaparoo(b *testing.B) {
 		tr := new(Tracker)
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			tr.Acquire().Release()
 		}
 	})
@@ -88,7 +88,7 @@ func BenchmarkSwaparoo(b *testing.B) {
 		tr := new(Tracker)
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			tr.Increment().Wait()
 		}
 	})
@@ -106,13 +106,13 @@ func BenchmarkSwaparoo(b *testing.B) {
 		})
 
 		b.Run("Increment", func(b *testing.B) {
-			first := new(uint64)
+			var first atomic.Bool
 			tr := new(Tracker)
 			b.ReportAllocs()
 
 			b.RunParallel(func(pb *testing.PB) {
-				// only a single thread can be calling Increment
-				if atomic.CompareAndSwapUint64(first, 0, 1) {
+				// only have a single thread call Increment
+				if first.CompareAndSwap(false, true) {
 					for pb.Next() {
 						tr.Increment().Wait()
 					}
